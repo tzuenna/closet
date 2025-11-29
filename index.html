@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Mon Soin | Inventory V5</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
+    <style>
+        /* --- 基礎設定 --- */
+        :root {
+            --bg: #FDFBF7;
+            --text: #2C2C2C;
+            --gold: #C5A059;
+            --serif: 'Playfair Display', serif;
+            --sans: 'Lato', sans-serif;
+        }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        
+        body {
+            font-family: var(--sans);
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0; padding: 25px 15px;
+        }
+
+        /* --- Header --- */
+        header { text-align: center; margin-bottom: 25px; }
+        h1 { font-family: var(--serif); font-size: 2.6rem; margin: 0; font-weight: 500; letter-spacing: 0.5px; }
+        .sub { font-size: 11px; color: var(--gold); letter-spacing: 3px; text-transform: uppercase; margin-top: 5px; }
+
+        /* --- Filter Bar (新功能) --- */
+        .filter-scroll {
+            display: flex;
+            gap: 20px;
+            overflow-x: auto;
+            white-space: nowrap;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #EAE5E0;
+            /* 隱藏捲軸但保留功能 */
+            -ms-overflow-style: none; scrollbar-width: none;
+        }
+        .filter-scroll::-webkit-scrollbar { display: none; }
+
+        .filter-item {
+            font-family: var(--serif);
+            font-size: 15px;
+            color: #999;
+            cursor: pointer;
+            padding-bottom: 8px;
+            position: relative;
+            transition: color 0.3s;
+        }
+        
+        /* 啟用狀態 */
+        .filter-item.active {
+            color: var(--text);
+            font-weight: 600;
+        }
+        .filter-item.active::after {
+            content: ''; position: absolute; bottom: -1px; left: 0; width: 100%; height: 2px;
+            background: var(--gold);
+        }
+
+        /* --- 主按鈕 --- */
+        .big-btn {
+            display: block; width: 100%; max-width: 320px; margin: 0 auto 30px;
+            padding: 14px; background: #222; color: #fff;
+            border: 1px solid #222; font-size: 13px; letter-spacing: 1.5px;
+            text-transform: uppercase; cursor: pointer;
+        }
+        .big-btn:active { transform: scale(0.98); }
+
+        /* --- 列表區 --- */
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
+        
+        .card {
+            background: #fff; padding: 25px; border: 1px solid #EAE5E0;
+            position: relative; box-shadow: 0 4px 15px rgba(0,0,0,0.02);
+            transition: opacity 0.3s;
+        }
+
+        .del-btn {
+            position: absolute; top: 10px; right: 10px;
+            width: 30px; height: 30px; border: none; background: none;
+            font-size: 22px; color: #eee; cursor: pointer; display: flex; align-items: center; justify-content: center;
+        }
+        .del-btn:hover { color: #d00; }
+
+        .card-brand { font-size: 10px; color: #999; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+        .card-name {
+            font-family: var(--serif); font-size: 1.4rem; color: #222; margin-bottom: 8px; line-height: 1.3;
+            font-style: normal; /* 正體 */
+        }
+        .card-tag {
+            display: inline-block; font-size: 10px; color: var(--gold);
+            border: 1px solid var(--gold); padding: 2px 6px; border-radius: 20px; margin-bottom: 15px;
+        }
+
+        /* 資訊網格 */
+        .info-grid {
+            display: grid; grid-template-columns: 1fr 1fr 1fr; 
+            gap: 10px; border-top: 1px solid #f8f8f8; padding-top: 15px;
+            font-size: 13px; color: #555;
+        }
+        .info-item span { display: block; font-size: 10px; color: #ccc; text-transform: uppercase; margin-bottom: 2px;}
+
+        /* 狀態按鈕 */
+        .status-area { margin-top: 18px; }
+        .btn-status {
+            width: 100%; padding: 10px; background: transparent;
+            border: 1px solid #eee; font-size: 12px; cursor: pointer;
+        }
+        .btn-new { border-color: var(--gold); color: var(--gold); font-weight: 600; }
+        .btn-new:hover { background: var(--gold); color: #fff; }
+        .btn-used { background: #f9f9f9; border: none; color: #888; cursor: default; }
+
+        /* --- 彈窗 Modal --- */
+        #modal {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(40,40,40,0.5); z-index: 9999;
+            backdrop-filter: blur(3px);
+            align-items: center; justify-content: center; padding: 20px;
+        }
+        .modal-box {
+            background: #fff; width: 100%; max-width: 450px; padding: 30px;
+            max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+        }
+        
+        .input-group { margin-bottom: 15px; }
+        .input-group label { display: block; font-size: 11px; color: #888; text-transform: uppercase; margin-bottom: 6px; }
+        input, select {
+            width: 100%; padding: 10px 0; border: none; border-bottom: 1px solid #ddd;
+            font-family: var(--serif); font-size: 16px; background: transparent; border-radius: 0; color: #333;
+        }
+        .row { display: flex; gap: 15px; }
+        .col { flex: 1; }
+
+        .action-btn { width: 100%; padding: 15px; background: #222; color: #fff; border: none; margin-top: 15px; font-size: 14px; text-transform: uppercase; }
+        .close-icon { float: right; background: none; border: none; font-size: 24px; color: #ccc; cursor: pointer; }
+
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>Mon Soin</h1>
+        <div class="sub">V5.0 Inventory</div>
+    </header>
+
+    <div class="filter-scroll" id="filterBar">
+        </div>
+
+    <div id="grid" class="grid"></div>
+    
+    <div id="empty" style="text-align:center; color:#ccc; margin-top:60px; font-style:italic;">
+        La beauté est partout.<br><span style="font-size:12px; font-style:normal;">(暫無此分類產品)</span>
+    </div>
+
+    <div style="position: fixed; bottom: 30px; right: 20px; z-index: 100;">
+        <button onclick="openModal()" style="
+            width: 50px; height: 50px; border-radius: 50%; background: #222; color: #fff; border: none;
+            font-size: 24px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); cursor: pointer;">＋</button>
+    </div>
+</div>
+
+<div id="modal">
+    <div class="modal-box">
+        <button class="close-icon" onclick="closeModal()">×</button>
+        <h2 style="text-align:center; font-family:var(--serif); margin:0 0 25px 0; font-weight:400;">Nouveau Produit</h2>
+        
+        <div class="input-group">
+            <label>Category (類別)</label>
+            <select id="m_cat" onchange="checkCat(this)">
+                <option value="精華液">精華液</option>
+                <option value="乳霜">乳霜</option>
+                <option value="化妝水">化妝水</option>
+                <option value="防曬">防曬</option>
+                <option value="護手霜">護手霜</option>
+                <option value="洗面乳">洗面乳</option>
+                <option value="面膜">面膜</option>
+                <option value="ADD">+ 新增分類...</option>
+            </select>
+        </div>
+        
+        <div class="input-group">
+            <label>Brand (品牌)</label>
+            <input type="text" id="m_brand" placeholder="e.g. Lancôme">
+        </div>
+        <div class="input-group">
+            <label>Name (產品名稱)</label>
+            <input type="text" id="m_name" placeholder="e.g. Genifique Serum">
+        </div>
+        <div class="row">
+            <div class="col input-group">
+                <label>Qty (數量)</label>
+                <input type="number" id="m_qty" value="1">
+            </div>
+            <div class="col input-group">
+                <label>Price</label>
+                <input type="number" id="m_price" placeholder="$">
+            </div>
+        </div>
+        <div class="input-group">
+            <label>Date (購買日)</label>
+            <input type="date" id="m_date">
+        </div>
+        <div class="input-group">
+            <label>Status (狀態)</label>
+            <select id="m_status">
+                <option value="new">未開封 (New)</option>
+                <option value="used">使用中 (In Use)</option>
+            </select>
+        </div>
+
+        <button class="action-btn" onclick="saveData()">Save Item</button>
+    </div>
+</div>
+
+<script>
+    const DB_KEY = 'mon_soin_v5';
+    let data = [];
+    let currentFilter = 'All'; // 目前選擇的分類
+
+    window.onload = function() {
+        const stored = localStorage.getItem(DB_KEY);
+        if (stored) data = JSON.parse(stored);
+        renderFilters(); // 1. 先畫分類列
+        render();        // 2. 再畫內容
+    };
+
+    // --- Filter Logic ---
+    function renderFilters() {
+        const bar = document.getElementById('filterBar');
+        bar.innerHTML = '';
+
+        // 1. 找出所有不重複的分類
+        const categories = ['All'];
+        data.forEach(item => {
+            if (!categories.includes(item.cat)) {
+                categories.push(item.cat);
+            }
+        });
+
+        // 2. 建立標籤
+        categories.forEach(cat => {
+            const div = document.createElement('div');
+            div.className = `filter-item ${cat === currentFilter ? 'active' : ''}`;
+            
+            // 翻譯 'All' 為中文 '全部'，其他維持原樣
+            div.innerText = cat === 'All' ? '全部' : cat;
+            
+            div.onclick = () => {
+                currentFilter = cat;
+                renderFilters(); // 重畫 Filter 樣式 (更新 active)
+                render();        // 重畫 Grid 內容
+            };
+            bar.appendChild(div);
+        });
+    }
+
+    // --- Main Render ---
+    function render() {
+        const grid = document.getElementById('grid');
+        const empty = document.getElementById('empty');
+        grid.innerHTML = '';
+
+        // 過濾資料
+        let displayData = data;
+        if (currentFilter !== 'All') {
+            displayData = data.filter(item => item.cat === currentFilter);
+        }
+
+        if (displayData.length === 0) {
+            empty.style.display = 'block';
+            return;
+        }
+        empty.style.display = 'none';
+
+        // 產生卡片
+        displayData.forEach(item => {
+            let statusHtml = '';
+            if (item.status === 'new') {
+                statusHtml = `<button class="btn-status btn-new" onclick="openProduct(${item.id})">未開封 (開瓶)</button>`;
+            } else {
+                const days = Math.ceil(Math.abs(new Date() - new Date(item.openDate || item.date)) / (86400000)); 
+                statusHtml = `<button class="btn-status btn-used">已使用 ${days} 天</button>`;
+            }
+
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.innerHTML = `
+                <button class="del-btn" onclick="delItem(${item.id})">×</button>
+                <div class="card-brand">${item.brand || 'Brand'}</div>
+                <div class="card-name">${item.name}</div>
+                <div class="card-tag">${item.cat}</div>
+                <div class="info-grid">
+                    <div class="info-item"><span>Qty</span>${item.qty}</div>
+                    <div class="info-item"><span>Price</span>$${item.price||0}</div>
+                    <div class="info-item"><span>Date</span>${item.date}</div>
+                </div>
+                <div class="status-area">${statusHtml}</div>
+            `;
+            grid.appendChild(card);
+        });
+    }
+
+    // --- Data Operations ---
+    function openModal() {
+        document.getElementById('modal').style.display = 'flex';
+        document.getElementById('m_date').value = new Date().toISOString().split('T')[0];
+        document.getElementById('m_brand').value = '';
+        document.getElementById('m_name').value = '';
+        document.getElementById('m_price').value = '';
+        document.getElementById('m_status').value = 'new';
+    }
+    function closeModal() { document.getElementById('modal').style.display = 'none'; }
+    
+    function checkCat(el) {
+        if(el.value === 'ADD') {
+            const newCat = prompt("新分類名稱：");
+            if(newCat) {
+                const opt = document.createElement('option');
+                opt.value = newCat; opt.text = newCat; opt.selected = true;
+                el.add(opt, el[0]);
+            } else el.value = "精華液";
+        }
+    }
+
+    function saveData() {
+        const brand = document.getElementById('m_brand').value;
+        const name = document.getElementById('m_name').value;
+        const cat = document.getElementById('m_cat').value;
+        const price = document.getElementById('m_price').value;
+        const qty = document.getElementById('m_qty').value;
+        const date = document.getElementById('m_date').value;
+        const status = document.getElementById('m_status').value;
+
+        if (!name) { alert("請輸入名稱"); return; }
+
+        const newItem = {
+            id: Date.now(),
+            brand, name, cat, price, qty, date, status,
+            openDate: status === 'used' ? new Date().toISOString().split('T')[0] : null
+        };
+
+        data.unshift(newItem);
+        localStorage.setItem(DB_KEY, JSON.stringify(data));
+        
+        closeModal();
+        currentFilter = 'All'; // 新增後自動跳回全部，確保看到新物品
+        renderFilters();
+        render();
+    }
+
+    function delItem(id) {
+        if(confirm("Delete?")) {
+            data = data.filter(i => i.id !== id);
+            localStorage.setItem(DB_KEY, JSON.stringify(data));
+            renderFilters(); // 刪除後可能某分類沒了，要更新Bar
+            render();
+        }
+    }
+
+    function openProduct(id) {
+        if(confirm("Confirm Open?")) {
+            const idx = data.findIndex(i => i.id === id);
+            if(idx !== -1) {
+                data[idx].status = 'used';
+                data[idx].openDate = new Date().toISOString().split('T')[0];
+                localStorage.setItem(DB_KEY, JSON.stringify(data));
+                render();
+            }
+        }
+    }
+</script>
+</body>
+</html>
